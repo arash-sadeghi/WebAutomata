@@ -132,8 +132,7 @@ def extract_box_color():
     return box_color
 #-------------------------------------------------------------------------------------------------------------
 def sell():
-    global last_decision,sell_count,allow_sound
-    sell_count+=1
+    global last_decision,allow_sound
     price,_=extract_price_color()
 
     sell_button=driver.find_element_by_xpath('//*[@id="orderformSellBtn"]')
@@ -167,8 +166,7 @@ def sell():
 
 #-------------------------------------------------------------------------------------------------------------
 def buy():
-    global last_decision,buy_count,allow_sound,bought_price
-    buy_count+=1
+    global last_decision,allow_sound,bought_price
     bought_price,_=extract_price_color()
 
     buy_button=driver.find_element_by_xpath('//*[@id="orderformBuyBtn"]')
@@ -212,23 +210,26 @@ def secure():
         sell()
 
 #-------------------------------------------------------------------------------------------------------------
+def blink(s,delay):
+    print(colored(s+' <','blue'),end='\r',flush=True)
+    sleep(delay)
+    print(colored(s+' >','yellow'),end='\r',flush=True)
+    sleep(delay)
+#-------------------------------------------------------------------------------------------------------------
+
 if __name__=='__main__':
     init()
     bc=''
     bc_p=''
-    wait_time=5*60 #7.5*60
     bcl=[]
-    sold_price =0
     bought_price=0
-    sampling_duration=4*60
+    sampling_duration=14*60
+    sampling_duration_small=2*60
     sampling_rate=1
     dirname=TimeStamp().replace(':','_')
     os.mkdir(dirname)
-    pass_margin=10//2
+    pass_margin=10
     last_decision='sell' # start with usdt at hand so first we will buy eth at lowest
-    diff_counter_thresh=10
-    buy_count=0
-    sell_count=0
     allow_sound=True
     crash_count=0
     transaction_minute=0
@@ -248,6 +249,7 @@ if __name__=='__main__':
                     bc='empty'
                     t1=time()
                     while True:
+                        blink('sampling' , 0.5)
                         Q3h=float(Q3h_element.get_attribute('innerHTML'))
                         Q1l=float(Q1l_element.get_attribute('innerHTML'))
                         bcl.append(extract_box_color())
@@ -257,9 +259,10 @@ if __name__=='__main__':
                             bc='g' if bcl.count('g')==max(bcl.count('g'),bcl.count('r')) else 'r'
                             print(colored('[+] {} gathering sample done TIME REACHED bc {}'.format(TimeStamp(),bc),'white'))        
                             break
-                        elif abs(Q3h-Q1l)>= pass_margin:
+                        elif abs(Q3h-Q1l)>= pass_margin and time()-t1>= sampling_duration_small:
                             bc=bcl[-1]
-                            print(colored('[+] {} gathering sample done Q3h-Q1l is big {} bc {}'.format(TimeStamp(),Q3h-Q1l,bc),'white'))        
+                            print(colored('[+] {} gathering sample done Q3h {:.2f} - Q1l {:.2f} is big {:.2f} bc {}'\
+                                .format(TimeStamp(),Q3h,Q1l,Q3h-Q1l,bc),'white'))        
                             break
 
                     price,_=extract_price_color()
@@ -289,11 +292,7 @@ if __name__=='__main__':
                     print(colored('[+] {} getting bc_p {}'.format(TimeStamp(),bc_p),'yellow'))
 
                 else: 
-                    print(colored('waiting <','blue'),end='\r',flush=True)
-                    sleep(0.5)
-                    print(colored('waiting >','yellow'),end='\r',flush=True)
-                    sleep(0.5)
-
+                    blink('waiting' , 0.5)
             except Exception as E_loop:
                 speak_engine.say("Faliure Faliure Faliure Faliure")
                 speak_engine.runAndWait()
