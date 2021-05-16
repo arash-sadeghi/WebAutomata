@@ -25,20 +25,6 @@ def Minute():
 def Second():
     return datetime.datetime.now().second
 #-------------------------------------------------------------------------------------------------------------
-def wait_until_15m():
-    global last_decision,sell_count,buy_count,bc_p
-    print(colored('[+] {} waiting for 15th m'.format(TimeStamp()),'white'))
-    count=0
-    while True:
-        Min=Minute()
-        Sec=Second()
-        if Min%15==0:
-            break
-        elif Min%15==14 and count==0 and Sec>=40 :
-            count+=1
-            bc_p=extract_box_color() # check for the previous box color from reliable stable form
-    print(colored('[+] {} waiting for 15th m done'.format(TimeStamp()),'white'))
-#-------------------------------------------------------------------------------------------------------------
 def speaker_init():
     global speak_engine
     speak_engine = pyttsx3.init()
@@ -217,6 +203,13 @@ def buy():
         speak_engine.say("Bought with bought_price " + str(bought_price))
         speak_engine.runAndWait()
         playsound('coin sound.mp3')
+#-------------------------------------------------------------------------------------------------------------
+def secure():
+    global bought_price,last_decision
+    price_localvar,_=extract_price_color()
+    if  price_localvar<=bought_price+0.1 and last_decision=='buy':
+        print(colored('[+] {} COMPONSATE price {} <=bought_price {} +0.1'.format(TimeStamp(),price_localvar,bought_price),'red'))
+        sell()
 
 #-------------------------------------------------------------------------------------------------------------
 if __name__=='__main__':
@@ -238,77 +231,69 @@ if __name__=='__main__':
     sell_count=0
     allow_sound=True
     crash_count=0
+    transaction_minute=0
+    bc_p_sample_minute=0
     try:
         while True:
             try:
+                if Minute()%15==0 and transaction_minute!=Minute():
+                    STATE='go'
+                    transaction_minute=Minute()
+                    print(colored('\n---------------------------------------------------------\n','blue'))
 
-                wait_until_15m()
-                print(colored('\n---------------------------------------------------------\n','blue'))
+                    Q1l_element=driver.find_element_by_xpath(Q1l_x_o)
+                    Q3h_element=driver.find_element_by_xpath(Q3h_x_c)
+                    print(colored('[+] {} gathering sample bc_p {}'.format(TimeStamp(),bc_p),'white'))
+                    bcl=[]
+                    bc='empty'
+                    t1=time()
+                    while True:
+                        Q3h=float(Q3h_element.get_attribute('innerHTML'))
+                        Q1l=float(Q1l_element.get_attribute('innerHTML'))
+                        bcl.append(extract_box_color())
 
-                Q1l_element=driver.find_element_by_xpath(Q1l_x_o)
-                Q3h_element=driver.find_element_by_xpath(Q3h_x_c)
+                        if time()-t1>= sampling_duration:
+                            bcl=bcl[3*len(bcl)//4:] # choose the last piece of data
+                            bc='g' if bcl.count('g')==max(bcl.count('g'),bcl.count('r')) else 'r'
+                            print(colored('[+] {} gathering sample done TIME REACHED bc {}'.format(TimeStamp(),bc),'white'))        
+                            break
+                        elif abs(Q3h-Q1l)>= pass_margin:
+                            bc=bcl[-1]
+                            print(colored('[+] {} gathering sample done Q3h-Q1l is big {} bc {}'.format(TimeStamp(),Q3h-Q1l,bc),'white'))        
+                            break
 
-                # change_element=driver.find_element_by_xpath(change_x_c)
-                # change=float(change_element.get_attribute('innerHTML').replace('%',''))
-                print(colored('[+] {} gathering sample bc_p {}'.format(TimeStamp(),bc_p),'white'))
+                    price,_=extract_price_color()
 
+                    if bc==bc_p:
+                        print(colored('[+] {} box color is still {}'.format(TimeStamp(),bc),'yellow'))
 
-                bcl=[]
-                bc='empty'
-                """ 
-                for _ in range(sampling_duration):
-                    bcl.append(extract_box_color())
-                    sleep(sampling_rate)
-                    # if Q3h-Q1l<
-                """
-                t1=time()
-                while True:
-                    Q3h=float(Q3h_element.get_attribute('innerHTML'))
-                    Q1l=float(Q1l_element.get_attribute('innerHTML'))
-                    bcl.append(extract_box_color())
-
-                    if time()-t1>= sampling_duration:
-                        bcl=bcl[3*len(bcl)//4:] # choose the last piece of data
-                        bc='g' if bcl.count('g')==max(bcl.count('g'),bcl.count('r')) else 'r'
-                        print(colored('[+] {} gathering sample done TIME REACHED bc {}'.format(TimeStamp(),bc),'white'))        
-                        break
-                    elif abs(Q3h-Q1l)>= pass_margin:
-                        bc=bcl[-1]
-                        print(colored('[+] {} gathering sample done Q3h-Q1l is big {} bc {}'.format(TimeStamp(),Q3h-Q1l,bc),'white'))        
-                        break
-
-
-
-                price,_=extract_price_color()
-                print(colored('[+] {} Q1l-Q3h {} '.format(TimeStamp(),round(Q1l-Q3h,2),price),'yellow'))
-
-                """ 
-                if abs(Q1l-Q3h)<pass_margin:
-                    print(colored('[+] {} passed change is small {} '.format(TimeStamp(),Q1l-Q3h),'yellow'))
-                """
-
-                if  price<=bought_price+0.1 and last_decision=='buy':
-                    print(colored('[+] {} COMPONSATE price<=bought_price+0.1 {} bought_price {}'.format(TimeStamp(),price,bought_price),'red'))
-                    sell()
-
-                elif bc==bc_p:
-                    print(colored('[+] {} box color is still {}'.format(TimeStamp(),bc),'yellow'))
-
-                elif (bc_p=='g' and bc=='r') and last_decision=='buy':
-                    print(colored('[+] {} SELL {} --> {}'.format(TimeStamp(),bc_p,bc),'red'))
+                    elif (bc_p=='g' and bc=='r') and last_decision=='buy':
+                        print(colored('[+] {} SELL {} --> {}'.format(TimeStamp(),bc_p,bc),'red'))
+                        
+                        if price >= bought_price:
+                            sell()
+                        else:
+                            print(colored('[+] {} better not sell price {} bought_price {}'.format(TimeStamp(),price,bought_price),'red'))
                     
-                    if price >= bought_price:
-                        sell()
-                    else:
-                        print(colored('[+] {} better not sell price {} bought_price {}'.format(TimeStamp(),price,bought_price),'red'))
-                
 
-                elif bc_p=='r' and bc=='g' and last_decision=='sell':
-                    print(colored('[+] {} BUY {} --> {}'.format(TimeStamp(),bc_p,bc),'green'))
-                    buy()
-                else:
-                    print(colored('[-] {} no if case happened bc_p {} bc {} last_decision {} price {} bought_price {}'\
-                        .format(TimeStamp(),bc_p,bc,last_decision,price,bought_price),'blue'))
+                    elif bc_p=='r' and bc=='g' and last_decision=='sell':
+                        print(colored('[+] {} BUY {} --> {}'.format(TimeStamp(),bc_p,bc),'green'))
+                        buy()
+                    else:
+                        print(colored('[-] {} no if case happened bc_p {} bc {} last_decision {} price {} bought_price {}'\
+                            .format(TimeStamp(),bc_p,bc,last_decision,price,bought_price),'blue'))
+
+                elif Minute()%15==14 and Second()>=40 and bc_p_sample_minute!=Minute():
+                    bc_p_sample_minute=Minute()
+                    bc_p=extract_box_color() # check for the previous box color from reliable stable form
+                    print(colored('[+] {} getting bc_p {}'.format(TimeStamp(),bc_p),'yellow'))
+
+                else: 
+                    print(colored('waiting <','blue'),end='\r',flush=True)
+                    sleep(0.5)
+                    print(colored('waiting >','yellow'),end='\r',flush=True)
+                    sleep(0.5)
+
             except Exception as E_loop:
                 speak_engine.say("Faliure Faliure Faliure Faliure")
                 speak_engine.runAndWait()
