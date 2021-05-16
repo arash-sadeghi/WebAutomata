@@ -1,3 +1,6 @@
+from termcolor import colored
+from sys import version
+print(colored(version,'red'))
 from os import mkdir, name,environ
 import os
 from selenium import webdriver
@@ -6,11 +9,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from time import sleep,time,ctime
 from selenium.webdriver.common.keys import Keys
-from termcolor import colored
 import datetime
 from numpy import sign
 from playsound import playsound
 import pyttsx3
+from selenium.webdriver.chrome.options import Options
+
 
 def TimeStamp():
     return ctime(time())
@@ -158,7 +162,7 @@ def sell():
 
     amount2Bsold=total_eth # for 100%
     clear_entry(amount)
-    print(colored('total_eth {},price {},amount2Bsold {}'.format(total_eth,price,amount2Bsold),'red'))
+    print(colored('[+] Sell total_eth {},price {},amount2Bsold {}'.format(total_eth,price,amount2Bsold),'red'))
     amount.send_keys(str(amount2Bsold))
 
     sell_button.click()
@@ -177,25 +181,25 @@ def sell():
 
 #-------------------------------------------------------------------------------------------------------------
 def buy():
-    global last_decision,buy_count,allow_sound
+    global last_decision,buy_count,allow_sound,bought_price
     buy_count+=1
-    price,_=extract_price_color()
+    bought_price,_=extract_price_color()
 
     buy_button=driver.find_element_by_xpath('//*[@id="orderformBuyBtn"]')
     amount=driver.find_element_by_xpath('//*[@id="FormRow-BUY-quantity"]')
     
     Price_entry=driver.find_element_by_xpath('//*[@id="FormRow-BUY-price"]')
     clear_entry(Price_entry)
-    Price_entry.send_keys(str(price))
+    Price_entry.send_keys(str(bought_price))
     
     total_usdt=driver.find_element_by_xpath('//*[@id="__APP"]/div/div/div[5]/div/div[3]/div[1]/div/div[2]/span')
     total_usdt=float(total_usdt.get_attribute("innerHTML").replace(' USDT',''))
 
-    # amount2Bbougth=total_usdt/price # for 100%
-    # amount2Bbougth=11/price # for 100%
-    amount2Bbougth=10.5/price # for 100%
+    # amount2Bbougth=total_usdt/bought_price # for 100%
+    # amount2Bbougth=11/bought_price # for 100%
+    amount2Bbougth=10.5/bought_price # for 100%
 
-    print(colored('total_usdt {},price {},amount2Bsold {}'.format(total_usdt,price,amount2Bbougth),'green'))
+    print(colored('[+] Bought total_usdt {},bought_price {},amount2Bsold {}'.format(total_usdt,bought_price,amount2Bbougth),'green'))
     clear_entry(amount)
     amount.send_keys(str(amount2Bbougth))
 
@@ -207,10 +211,10 @@ def buy():
     driver.get_screenshot_as_file(dirname+'/'+TimeStamp().replace(':','_')+' buy driver '+'.png')
 
     last_decision='buy'
-
+    
     if allow_sound:
         playsound('coin sound.mp3')
-        speak_engine.say("Bought with price " + str(price))
+        speak_engine.say("Bought with bought_price " + str(bought_price))
         speak_engine.runAndWait()
         playsound('coin sound.mp3')
 
@@ -234,6 +238,7 @@ if __name__=='__main__':
     sell_count=0
     allow_sound=True
     crash_count=0
+    try:
         while True:
             try:
 
@@ -241,10 +246,7 @@ if __name__=='__main__':
                 print(colored('\n---------------------------------------------------------\n','blue'))
 
                 Q1l_element=driver.find_element_by_xpath(Q1l_x_o)
-                Q1l=float(Q1l_element.get_attribute('innerHTML'))
-
                 Q3h_element=driver.find_element_by_xpath(Q3h_x_c)
-                Q3h=float(Q3h_element.get_attribute('innerHTML'))
 
                 # change_element=driver.find_element_by_xpath(change_x_c)
                 # change=float(change_element.get_attribute('innerHTML').replace('%',''))
@@ -252,67 +254,62 @@ if __name__=='__main__':
 
 
                 bcl=[]
+                bc='empty'
+                """ 
                 for _ in range(sampling_duration):
                     bcl.append(extract_box_color())
                     sleep(sampling_rate)
-                bcl=bcl[3*len(bcl)//4:] # choose the last piece of data
-                bc='g' if bcl.count('g')==max(bcl.count('g'),bcl.count('r')) else 'r'
+                    # if Q3h-Q1l<
+                """
+                t1=time()
+                while True:
+                    Q3h=float(Q3h_element.get_attribute('innerHTML'))
+                    Q1l=float(Q1l_element.get_attribute('innerHTML'))
+                    bcl.append(extract_box_color())
+
+                    if time()-t1>= sampling_duration:
+                        bcl=bcl[3*len(bcl)//4:] # choose the last piece of data
+                        bc='g' if bcl.count('g')==max(bcl.count('g'),bcl.count('r')) else 'r'
+                        print(colored('[+] {} gathering sample done TIME REACHED bc {}'.format(TimeStamp(),bc),'white'))        
+                        break
+                    elif abs(Q3h-Q1l)>= pass_margin:
+                        bc=bcl[-1]
+                        print(colored('[+] {} gathering sample done Q3h-Q1l is big {} bc {}'.format(TimeStamp(),Q3h-Q1l,bc),'white'))        
+                        break
 
 
 
-                # margin_counter=0
-                # t1=time()
-                # while True:
-                #     Q3h=float(Q3h_element.get_attribute('innerHTML'))
-                #     Q1l=float(Q1l_element.get_attribute('innerHTML'))
+                price,_=extract_price_color()
+                print(colored('[+] {} Q1l-Q3h {} '.format(TimeStamp(),round(Q1l-Q3h,2),price),'yellow'))
 
-                #     if abs(Q1l-Q3h)<pass_margin:
-                #         margin_counter-=1
-                #     else:
-                #         margin_counter+=1
-
-                #     if time()-t1>sampling_duration: 
-                #         no_decision=True
-                #         break 
-                #     elif margin_counter>=diff_counter_thresh:
-                #         no_decision=False
-                #         bc=extract_box_color()
-                #         break
-
-                print(colored('[+] {} gathering sample done bc {}'.format(TimeStamp(),bc),'white'))
-
-
-                Q3h=float(Q3h_element.get_attribute('innerHTML'))
-                Q1l=float(Q1l_element.get_attribute('innerHTML'))
-                print(colored('[+] {} Q1l-Q3h {} '.format(TimeStamp(),Q1l-Q3h),'yellow'))
-
+                """ 
                 if abs(Q1l-Q3h)<pass_margin:
-                # if no_decision:
                     print(colored('[+] {} passed change is small {} '.format(TimeStamp(),Q1l-Q3h),'yellow'))
+                """
+
+                if  price<=bought_price+0.1 and last_decision=='buy':
+                    print(colored('[+] {} COMPONSATE price<=bought_price+0.1 {} bought_price {}'.format(TimeStamp(),price,bought_price),'red'))
+                    sell()
 
                 elif bc==bc_p:
                     print(colored('[+] {} box color is still {}'.format(TimeStamp(),bc),'yellow'))
 
-                elif bc_p=='g' and bc=='r' and last_decision=='buy':
+                elif (bc_p=='g' and bc=='r') and last_decision=='buy':
                     print(colored('[+] {} SELL {} --> {}'.format(TimeStamp(),bc_p,bc),'red'))
                     
-                    sold_price,_=extract_price_color()
-                    
-                    if sold_price >= bought_price:
+                    if price >= bought_price:
                         sell()
                     else:
-                        print(colored('[+] {} better not sell sold_price {} bought_price {}'.format(TimeStamp(),sold_price,bought_price),'red'))
+                        print(colored('[+] {} better not sell price {} bought_price {}'.format(TimeStamp(),price,bought_price),'red'))
                 
+
                 elif bc_p=='r' and bc=='g' and last_decision=='sell':
                     print(colored('[+] {} BUY {} --> {}'.format(TimeStamp(),bc_p,bc),'green'))
-
                     buy()
-
-                    bought_price,_=extract_price_color()
                 else:
-                    print(colored('[-] {} no if case happened bc_p {} bc {} last_decision {} sold_price {} bought_price {}'\
-                        .format(TimeStamp(),bc_p,bc,last_decision,sold_price,bought_price),'blue'))
-            except Exception as E:
+                    print(colored('[-] {} no if case happened bc_p {} bc {} last_decision {} price {} bought_price {}'\
+                        .format(TimeStamp(),bc_p,bc,last_decision,price,bought_price),'blue'))
+            except Exception as E_loop:
                 speak_engine.say("Faliure Faliure Faliure Faliure")
                 speak_engine.runAndWait()
                 """ 
@@ -320,7 +317,11 @@ if __name__=='__main__':
                     sell()
                 """
                 crash_count+=1
-                print(colored("[-] program crashed with error: "+E),'red')
+                print(colored("[-] program crashed with error: "+E_loop),'red')
                 driver.refresh()
+    except Exception as E_major:
+        print(colored("[-] program crashed and no escape with error: "+E_major),'red')
+        sell()
+        print('bye')
 
 print('hix')
