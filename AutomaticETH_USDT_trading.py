@@ -52,7 +52,11 @@ def speaker_init():
 def init():
     global driver,value,canvas, Q1l_x_o, Q3h_x_c, change_x_c
     speaker_init()
-    driver=webdriver.Chrome()
+    # path='/home/arash/Desktop/Link to ARASH/OTHER codes/Web Automata/WebAutomata github'
+    path='/home/arash/Desktop/Link to ARASH/OTHER codes/Web Automata/WebAutomata github/geckodriver'
+
+    driver = webdriver.Firefox(executable_path=path)  #python
+    # driver=webdriver.Chrome()
     # driver=webdriver.Chrome('/usr/bin/google-chrome')
     driver.get('https://www.binance.com/en/trade/ETH_USDT?layout=basic&theme=dark&type=spot')
     driver.implicitly_wait(20)
@@ -222,88 +226,87 @@ if __name__=='__main__':
     bc=''
     bc_p=''
     bcl=[]
-    bought_price=0
+    bought_price=3527.07
+    last_decision='buy' # start with usdt at hand so first we will buy eth at lowest
+    if bought_price!=0 or last_decision=='sell':
+        print(colored('[!] Warning Initial State Given','red','on_yellow'))
     sampling_duration=14*60
     sampling_duration_small=2*60
     sampling_rate=1
     dirname=TimeStamp().replace(':','_')
     os.mkdir(dirname)
-    pass_margin=10
-    last_decision='sell' # start with usdt at hand so first we will buy eth at lowest
+    pass_margin=20
     allow_sound=True
-    crash_count=0
     transaction_minute=0
     bc_p_sample_minute=0
     try:
         while True:
-            try:
-                if Minute()%15==0 and transaction_minute!=Minute():
-                    STATE='go'
-                    transaction_minute=Minute()
-                    print(colored('\n---------------------------------------------------------\n','blue'))
+            if Minute()%15==0 and transaction_minute!=Minute():
+                STATE='go'
+                transaction_minute=Minute()
+                print(colored('\n---------------------------------------------------------\n','blue'))
 
-                    Q1l_element=driver.find_element_by_xpath(Q1l_x_o)
-                    Q3h_element=driver.find_element_by_xpath(Q3h_x_c)
-                    print(colored('[+] {} gathering sample bc_p {}'.format(TimeStamp(),bc_p),'white'))
-                    bcl=[]
-                    bc='empty'
-                    t1=time()
-                    while True:
-                        blink('sampling' , 0.5)
-                        Q3h=float(Q3h_element.get_attribute('innerHTML'))
-                        Q1l=float(Q1l_element.get_attribute('innerHTML'))
-                        bcl.append(extract_box_color())
+                Q1l_element=driver.find_element_by_xpath(Q1l_x_o)
+                Q3h_element=driver.find_element_by_xpath(Q3h_x_c)
+                print(colored('[+] {} gathering sample bc_p {}'.format(TimeStamp(),bc_p),'white'))
+                bcl=[]
+                bc='empty'
+                t1=time()
+                while True:
+                    blink('sampling' , 0.5)
+                    Q3h=float(Q3h_element.get_attribute('innerHTML'))
+                    Q1l=float(Q1l_element.get_attribute('innerHTML'))
+                    bcl.append(extract_box_color())
 
-                        if time()-t1>= sampling_duration:
-                            bcl=bcl[3*len(bcl)//4:] # choose the last piece of data
-                            bc='g' if bcl.count('g')==max(bcl.count('g'),bcl.count('r')) else 'r'
-                            print(colored('[+] {} gathering sample done TIME REACHED bc {}'.format(TimeStamp(),bc),'white'))        
-                            break
-                        elif abs(Q3h-Q1l)>= pass_margin and time()-t1>= sampling_duration_small:
-                            bc=bcl[-1]
-                            print(colored('[+] {} gathering sample done Q3h {:.2f} - Q1l {:.2f} is big {:.2f} bc {}'\
-                                .format(TimeStamp(),Q3h,Q1l,Q3h-Q1l,bc),'white'))        
-                            break
+                    if time()-t1>= sampling_duration:
+                        bcl=bcl[3*len(bcl)//4:] # choose the last piece of data
+                        bc='g' if bcl.count('g')==max(bcl.count('g'),bcl.count('r')) else 'r'
+                        print(colored('[+] {} gathering sample done TIME REACHED bc {}'.format(TimeStamp(),bc),'white'))        
+                        break
+                    elif abs(Q3h-Q1l)>= pass_margin and time()-t1>= sampling_duration_small:
+                        bc=bcl[-1]
+                        print(colored('[+] {} gathering sample done Q3h {:.2f} - Q1l {:.2f} is big {:.2f} bc {}'\
+                            .format(TimeStamp(),Q3h,Q1l,Q3h-Q1l,bc),'white'))        
+                        break
 
-                    price,_=extract_price_color()
+                price,_=extract_price_color()
 
-                    if bc==bc_p:
-                        print(colored('[+] {} box color is still {}'.format(TimeStamp(),bc),'yellow'))
+                if bc==bc_p:
+                    print(colored('[+] {} box color is still {}'.format(TimeStamp(),bc),'yellow'))
 
-                    elif (bc_p=='g' and bc=='r') and last_decision=='buy':
-                        print(colored('[+] {} SELL {} --> {}'.format(TimeStamp(),bc_p,bc),'red'))
-                        
-                        if price >= bought_price:
-                            sell()
-                        else:
-                            print(colored('[+] {} better not sell price {} bought_price {}'.format(TimeStamp(),price,bought_price),'red'))
+                elif (bc_p=='g' and bc=='r') and last_decision=='buy':
+                    print(colored('[+] {} SELL {} --> {}'.format(TimeStamp(),bc_p,bc),'magneta'))
                     
-
-                    elif bc_p=='r' and bc=='g' and last_decision=='sell':
-                        print(colored('[+] {} BUY {} --> {}'.format(TimeStamp(),bc_p,bc),'green'))
-                        buy()
+                    if price >= bought_price:
+                        sell()
                     else:
-                        print(colored('[-] {} no if case happened bc_p {} bc {} last_decision {} price {} bought_price {}'\
-                            .format(TimeStamp(),bc_p,bc,last_decision,price,bought_price),'blue'))
+                        print(colored('[+] {} better not sell price {} bought_price {}'\
+                            .format(TimeStamp(),price,bought_price),'magneta'))
+                
 
-                elif Minute()%15==14 and Second()>=40 and bc_p_sample_minute!=Minute():
-                    bc_p_sample_minute=Minute()
-                    bc_p=extract_box_color() # check for the previous box color from reliable stable form
-                    print(colored('[+] {} getting bc_p {}'.format(TimeStamp(),bc_p),'yellow'))
+                elif bc_p=='r' and bc=='g' and last_decision=='sell':
+                    print(colored('[+] {} BUY {} --> {}'.format(TimeStamp(),bc_p,bc),'cyan'))
+                    buy()
+                else:
+                    print(colored('[-] {} no if case happened bc_p {} bc {} last_decision {} price {} bought_price {}'\
+                        .format(TimeStamp(),bc_p,bc,last_decision,price,bought_price),'blue'))
 
-                else: 
-                    blink('waiting' , 0.5)
-            except Exception as E_loop:
-                speak_engine.say("Faliure Faliure Faliure Faliure")
-                speak_engine.runAndWait()
-                """ 
-                if crash_count==0: # sell once to escapehaving money in ETH
-                    sell()
-                """
-                crash_count+=1
-                print(colored("[-] program crashed with error: "+E_loop),'red')
-                driver.refresh()
+            elif Minute()%15==14 and Second()>=40 and bc_p_sample_minute!=Minute():
+                bc_p_sample_minute=Minute()
+                bc_p=extract_box_color() # check for the previous box color from reliable stable form
+                print(colored('[+] {} getting bc_p {}'.format(TimeStamp(),bc_p),'yellow'))
+
+            else: 
+                blink('waiting' , 0.5)
     except Exception as E_major:
+        speak_engine.say("Faliure Faliure Faliure Faliure")
+        speak_engine.runAndWait()
+        """ 
+        if crash_count==0: # sell once to escapehaving money in ETH
+            sell()
+        """
+        sell()
+        driver.refresh()
         print(colored("[-] program crashed and no escape with error: "+E_major),'red')
         sell()
         print('bye')
